@@ -12,7 +12,6 @@ import com.bivashy.limbo.NanoLimboVelocity;
 import com.bivashy.limbo.config.ConfigurationUtil;
 
 import ua.nanit.limbo.configuration.LimboConfig;
-import ua.nanit.limbo.configuration.YamlLimboConfig;
 
 public class VelocityLimboServer {
     private final LimboConfig limboConfig;
@@ -58,8 +57,8 @@ public class VelocityLimboServer {
             LimboConfig limboConfig;
             try {
                 File limboSettingsFolder = new File(PLUGIN.getDataFolder().toFile(), settingsFolder);
-                ConfigurationUtil.saveDefaultConfig(PLUGIN.getClass().getClassLoader(), limboSettingsFolder, "settings.yml");
-                limboConfig = new YamlLimboConfig(limboSettingsFolder.toPath(), PLUGIN.getClass().getClassLoader()).load();
+                limboConfig = new LimboConfig(limboSettingsFolder.toPath());
+                limboConfig.load();
             } catch(Exception e) {
                 e.printStackTrace();
                 throw new SerializationException();

@@ -1,136 +1,18 @@
-## For developers
-If you want to create Limbo using api you can follow this steps:
-### Get started
-**Maven**:
-```xml
-<repositories>
-   <repository>
-      <id>jitpack.io</id>
-      <url>https://jitpack.io</url>
-   </repository>
-</repositories>
-<dependencies>
-    <dependency>
-       <groupId>com.github.bivashy.NanoLimboPlugin</groupId>
-       <artifactId>api</artifactId>
-       <version>1.0.11</version>
-    </dependency>
-</dependencies>
-```
-**Gradle**:
-```
-allprojects {
-   repositories {
-      maven { url 'https://jitpack.io' }
-   }
-}
-dependencies {
-    implementation 'com.github.bivashy.NanoLimboPlugin:api:1.0.11'
-}
-```
-### How to use API?
-That's easy!:
-```java
-LimboConfig config = new YamlLimboConfig(Paths.get("./"), classLoader).load();
-CommandHandler<Command> commandHandler = new ConsoleCommandHandler();
-LimboServer server = new LimboServer(config, commandHandler, getClass().getClassLoader());
-server.start();
+# NanoLimboPlugin
 
-// When you are done
-server.stop();
-```
-Here we are passing 3 arguments:
-1. LimboConfig - Configures limbo server, defines `SocketAddress`, join message, title, dimension type, and etc.
-2. CommandHandler - Simple CommandHandler. It used by limbo for registering commands. Useful for console only, redundant for Bukkit, Bungee, and other platforms.
-3. ClassLoader - used only for loading dummy dimension files from the "resources" directory. It loads all dimensions from the "dimension" folder, which can be found at [this link](https://github.com/bivashy/NanoLimboPlugin/tree/main/api/src/main/resources/dimension).
----
+Run lightweight [NanoLimbo](https://github.com/Nan1t/NanoLimbo) limbo servers **as a Velocity plugin** — spin up multiple limbos directly on your proxy, no standalone jars or extra ports to manage by hand.
 
-If you don't want to create or load config file, just implement `LimboConfig` interface, just like that:
-
-```java
-import java.net.SocketAddress;
-
-public class CustomLimboConfig implements LimboConfig {
-   /**
-    * Disables debug entirely
-    */
-   @Override
-   public int getDebugLevel() {
-      return -1;
-   }
-
-   /**
-    * Set F3 brand text to the "Some brand text"
-    */
-   @Override
-   public String getBrandName() {
-      return "Some brand text";
-   }
-
-   /**
-    * Launches limbo on the localhost:25555
-    */
-   @Override
-   public SocketAddress getAddress(){
-       return new InetSocketAddress("localhost", 25555);
-   }
-
-   // Implement all methods
-}
-```
-Then just pass to the LimboServer:
-```java
-LimboConfig config = new CustomLimboConfig();
-LimboServer server = new LimboServer(config, commandHandler, getClass().getClassLoader()); 
-```
-
----
-
-If you don't want limbo commands:
-
-```java
-import java.util.Collections;
-
-public class CustomCommandHandler implements CommandHandler<Command> {
-   @Override
-   public Collection<Command> getCommands() {
-      return Collections.emptyList();
-   }
-
-   public void register(T command) {
-   }
-
-   public boolean executeCommand(String input) {
-   }
-}
-```
-
-Then just pass to the LimboServer:
-```java
-CommandHandler<Command> commandHandler = new CustomCommandHandler();
-LimboServer server = new LimboServer(config, commandHandler, getClass().getClassLoader()); 
-```
-## NanoLimbo
-
-This is a lightweight Minecraft limbo server, written in Java with Netty.
-The main goal of this project is maximum simplicity with a minimum number of sent and processed packets.
-The limbo is empty; there is no ability to set a schematic building since this is not necessary.
-You can send useful information via chat or boss bar.
-
-The server is fully clear. It is only able to keep a lot of players while the main server is down.
+This is a port of [Nan1t's NanoLimbo](https://github.com/Nan1t/NanoLimbo) (v1.13.0) core into plugin form: the full upstream protocol stack, configuration format, and connection flow, driven from Velocity with multi-limbo support and proxy commands.
 
 General features:
-* High performance. The server doesn't save or cache any useless (for limbo) data.
-* Doesn't spawn threads per player. Use a fixed thread pool.
-* Support for **BungeeCord** and **Velocity** info forwarding.
-* Support for [BungeeGuard](https://www.spigotmc.org/resources/79601/) handshake format.
-* Multiple versions support.
-* Fully configurable.
-* Lightweight. App size around **3MB**.
+* Full protocol parity with upstream NanoLimbo — every version from 1.7.2 through 26.2.
+* Multiple limbo servers from one plugin, each with its own `settings.yml`.
+* Native **Velocity** integration: limbos are registered as backend servers, players can be forwarded to them, and `MODERN` / `LEGACY` / `BUNGEE_GUARD` info forwarding is supported per limbo.
+* High performance — no threads per player, fixed thread pool, no useless data cached.
+* Fully configurable (messages, boss bar, title, player list, ping, dimension).
+* Lightweight (~4.5 MB shaded jar).
 
-![](https://i.imgur.com/sT8p1Gz.png)
-
-### Versions support
+## Versions support
 
 Symbol `X` means all minor versions.
 
@@ -148,63 +30,105 @@ Symbol `X` means all minor versions.
 - [x] 1.18.X
 - [x] 1.19.X
 - [x] 1.20.X
-- [x] 1.21
+- [x] 1.21.X &nbsp; *(incl. 1.21.2, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11)*
+- [x] 26.1.X
+- [x] 26.2
 
 The server **doesn't** support snapshot versions.
 
-### Commands
+## Installation
 
-* `help` - Show help message
-* `conn` - Display number of connections
-* `mem` - Display memory usage stats
-* `stop` - Stop the server
+Required software: Velocity 3.3+ running on **Java 21**.
 
-Note that the server also will be closed correctly if you just press `Ctrl+C`.
+1. Download (or build) `velocity-x.y.z-all.jar` and drop it into Velocity's `plugins/` folder.
+2. Start Velocity once — the plugin creates `plugins/nanolimbovelocity/config.yml` and a `settings.yml` for each configured limbo.
+3. Edit the configs and restart.
 
-### Installation
+### Plugin config (`config.yml`)
 
-Required software: JRE 11+
+```yaml
+limbos:
+  first:                 # limbo name (also the registered Velocity server name)
+    settingsFolder: first   # subfolder of plugins/nanolimbovelocity/ holding this limbo's settings.yml
+messages:
+  deserializer: LEGACY_AMPERSAND   # PLAIN | GSON | GSON_LEGACY | LEGACY_AMPERSAND | LEGACY_SECTION | MINIMESSAGE
+  no-permission: '&cNot enough permission for this command'
+  # ... other command messages
+```
 
-The installation process is simple.
+### Limbo config (`settings.yml`)
 
-1. Download the latest version of the program [**here**](https://github.com/Nan1t/NanoLimbo/releases).
-2. Put the jar file in the folder you want.
-3. Create a start script as you did for Bukkit or BungeeCord, with a command like this:
-   `java -jar NanoLimbo-<version>.jar`
-4. The server will create `settings.yml` file, which is the server configuration. 
-5. Configure it as you want and restart the server.
+Each limbo uses the upstream NanoLimbo `settings.yml` format — see [Nan1t/NanoLimbo](https://github.com/Nan1t/NanoLimbo) for the full reference. Highlights:
 
-### Player info forwarding
+* `bind` — ip/port the limbo listens on (players can also connect through Velocity as a backend server).
+* `ping` — MOTD, version text and protocol shown in the server list.
+* `dimension`, `gameMode`, `joinMessage`, `bossBar`, `title`, `playerList`, `headerAndFooter`, `brandName` — the limbo experience.
+* `infoForwarding` — `NONE`, `LEGACY` (BungeeCord), `MODERN` (Velocity native, paste your proxy secret), or `BUNGEE_GUARD` (with tokens).
+* `netty.transportType` — `NIO`, `EPOLL`, `IO_URING`, `KQUEUE` (auto-falls back to NIO).
 
-The server supports player info forwarding from the proxy. There are several types of info forwarding:
+## Commands
 
-* `LEGACY` - The **BungeeCord** IP forwarding.
-* `MODERN` - **Velocity** native info forwarding type.
-* `BUNGEE_GUARD` - **BungeeGuard** forwarding type.
+| Command | Description | Permission |
+|---|---|---|
+| `/limbohelp` | Show help | — |
+| `/limboconn <limbo>` | Connection count on a limbo | `limbo.connection` |
+| `/limbomem` | Memory usage stats | `limbo.memory` |
+| `/limbostop <limbo>` | Stop a limbo | `limbo.stop` |
+| `/limbostart <limbo>` | Start a stopped limbo | `limbo.start` |
 
-If you use BungeeCord, or Velocity with `LEGACY` forwarding, just set this type in the config.  
-If you use Velocity with `MODERN` info forwarding, set this type and paste the secret key from
-Velocity config into `secret` field.
-If you installed BungeeGuard on your proxy, then use `BUNGEE_GUARD` forwarding type.
-Then add your tokens to `tokens` list.
+## For developers
 
-### Contributing
+**Maven**:
+```xml
+<repositories>
+   <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
+   </repository>
+</repositories>
+<dependencies>
+    <dependency>
+       <groupId>com.github.bivashy.NanoLimboPlugin</groupId>
+       <artifactId>api</artifactId>
+       <version>2.0.0</version>
+    </dependency>
+</dependencies>
+```
+**Gradle**:
+```groovy
+repositories { maven { url 'https://jitpack.io' } }
+dependencies { implementation 'com.github.bivashy.NanoLimboPlugin:api:2.0.0' }
+```
 
-Feel free to create a pull request if you find some bug or optimization opportunity, or if you want
-to add some functionality that is suitable for a limbo server and won't significantly load the server.
+### How to use the API?
 
-### Building
+```java
+LimboConfig config = new LimboConfig(Paths.get("./")); // folder that contains settings.yml
+config.load();
 
-Required software:
+CommandHandler<Command> commandHandler = new ConsoleCommandHandler();
+LimboServer server = new LimboServer(config, commandHandler);
+server.start();
 
-* JDK 11+
-* Gradle 7+ (optional)
+// When you are done
+server.stop();
+```
 
-To build a minimized jar, go to the project root directory and run in the terminal:
+If you don't want console commands, pass your own `CommandHandler` implementation (e.g. one backed by your platform's command framework — see the Velocity module in this repo for an example using [Lamp](https://github.com/Revxrsal/Lamp)).
+
+## Building
+
+Required software: JDK 21.
 
 ```
 ./gradlew shadowJar
 ```
+
+The plugin jar lands in `velocity/build/libs/`.
+
+## Credits
+
+* [Nan1t](https://github.com/Nan1t) — the original [NanoLimbo](https://github.com/Nan1t/NanoLimbo) this plugin ports.
 
 ### Contacts
 

@@ -17,26 +17,33 @@
 
 package ua.nanit.limbo;
 
-import java.nio.file.Paths;
-
-import ua.nanit.limbo.configuration.YamlLimboConfig;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import ua.nanit.limbo.configuration.LimboConfig;
 import ua.nanit.limbo.server.ConsoleCommandHandler;
 import ua.nanit.limbo.server.LimboServer;
 import ua.nanit.limbo.server.Log;
+
+import java.nio.file.Paths;
 
 public final class NanoLimbo {
 
     public static void main(String[] args) {
         try {
-            ConsoleCommandHandler consoleCommandHandler = new ConsoleCommandHandler();
-            ClassLoader classLoader = LimboServer.class.getClassLoader();
-            LimboServer server = new LimboServer(new YamlLimboConfig(Paths.get("./"), classLoader).load(), consoleCommandHandler, classLoader);
-            consoleCommandHandler.registerAll(server).start();
+            LimboConfig config = new LimboConfig(Paths.get("./"));
+            config.load();
+
+            ConsoleCommandHandler commandHandler = new ConsoleCommandHandler();
+            LimboServer server = new LimboServer(config, commandHandler);
+            commandHandler.registerAll(server);
+
             server.start();
-            Runtime.getRuntime().addShutdownHook(new Thread(server::stop, "NanoLimbo shutdown thread"));
-        } catch(Exception e) {
+            commandHandler.start();
+        } catch (Exception e) {
             Log.error("Cannot start server: ", e);
         }
     }
 
+    private NanoLimbo() {
+        throw new @NonNull UnsupportedOperationException();
+    }
 }

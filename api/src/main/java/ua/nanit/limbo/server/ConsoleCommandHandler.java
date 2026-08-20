@@ -4,6 +4,7 @@ import ua.nanit.limbo.server.commands.CmdConn;
 import ua.nanit.limbo.server.commands.CmdHelp;
 import ua.nanit.limbo.server.commands.CmdMem;
 import ua.nanit.limbo.server.commands.CmdStop;
+import ua.nanit.limbo.server.commands.CmdVersion;
 
 import java.util.*;
 
@@ -12,12 +13,18 @@ public final class ConsoleCommandHandler extends Thread implements CommandHandle
     private final Map<String, Command> commands = new HashMap<>();
 
     public Command getCommand(String name) {
-        return commands.get(name.toLowerCase());
+        return commands.get(name.toLowerCase(Locale.ROOT));
+    }
+
+    public void register(Command cmd, String... aliases) {
+        for (String alias : aliases) {
+            commands.put(alias.toLowerCase(Locale.ROOT), cmd);
+        }
     }
 
     @Override
-    public void register(Command cmd) {
-        commands.put(cmd.name().toLowerCase(), cmd);
+    public void register(Command command) {
+        register(command, command.getClass().getSimpleName().replace("Cmd", "").toLowerCase(Locale.ROOT));
     }
 
     @Override
@@ -59,10 +66,11 @@ public final class ConsoleCommandHandler extends Thread implements CommandHandle
     }
 
     public ConsoleCommandHandler registerAll(LimboServer server) {
-        register(new CmdHelp(server));
-        register(new CmdConn(server));
-        register(new CmdMem());
-        register(new CmdStop(server));
+        register(new CmdHelp(server), "help");
+        register(new CmdConn(server), "conn");
+        register(new CmdMem(), "mem");
+        register(new CmdStop(), "stop");
+        register(new CmdVersion(), "version", "ver");
         return this;
     }
 }

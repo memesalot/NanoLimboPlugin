@@ -17,11 +17,12 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.ServerInfo;
 
 import ua.nanit.limbo.NanoLimbo;
+import ua.nanit.limbo.server.Log;
 import ua.nanit.limbo.server.Command;
 import ua.nanit.limbo.server.CommandHandler;
 import ua.nanit.limbo.server.LimboServer;
 
-@Plugin(id = "nanolimbovelocity", name = "NanoLimboVelocity", version = "1.0.11", authors = "bivashy, Nan1t")
+@Plugin(id = "nanolimbovelocity", name = "NanoLimboVelocity", version = "2.0.0", authors = "bivashy, Nan1t")
 public class NanoLimboVelocity {
     static {
         NanoLimbo.class.getName(); // For preventing shadow jar minimizing
@@ -45,8 +46,11 @@ public class NanoLimboVelocity {
     public void onProxyInitialize(ProxyInitializeEvent e) {
         CommandHandler<Command> commandHandler = new LampVelocityCommandHandler(this).registerAll();
         for (VelocityLimboServer velocityLimboServer : limboConfig.getServers()) {
-            LimboServer server = new LimboServer(velocityLimboServer.getLimboConfig(), commandHandler,
-                    getClass().getClassLoader());
+            if (velocityLimboServer == null || velocityLimboServer.getLimboConfig().getAddress() == null) {
+                Log.error("Skipping misconfigured limbo (check its settings.yml): %s", velocityLimboServer == null ? "?" : velocityLimboServer.getLimboName());
+                continue;
+            }
+            LimboServer server = new LimboServer(velocityLimboServer.getLimboConfig(), commandHandler);
 
             ServerInfo serverInfo = new ServerInfo(velocityLimboServer.getLimboName(),
                     (InetSocketAddress) velocityLimboServer.getLimboConfig().getAddress());

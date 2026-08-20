@@ -1,23 +1,23 @@
 plugins {
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'com.gradleup.shadow' version '9.4.2'
 }
 
 allprojects {
     group 'ua.nanit'
-    version '1.8.1'
+    version '2.0.0'
 }
 
 subprojects {
     apply plugin: 'java'
-    apply plugin: 'com.github.johnrengelman.shadow'
+    apply plugin: 'com.gradleup.shadow'
 
     compileJava {
         options.encoding = "UTF-8"
     }
 
     tasks.withType(JavaCompile).configureEach {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     repositories {
@@ -25,18 +25,24 @@ subprojects {
     }
 
     dependencies {
-        testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.3'
-        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.3'
+        compileOnly 'org.projectlombok:lombok:1.18.46'
+        annotationProcessor 'org.projectlombok:lombok:1.18.46'
 
-        implementation 'org.spongepowered:configurate-yaml:4.1.2'
-        implementation 'io.netty:netty-all:4.1.101.Final'
-        implementation 'net.kyori:adventure-nbt:4.14.0'
-        implementation 'com.grack:nanojson:1.8'
-        implementation 'com.google.code.gson:gson:2.10.1'
+        // Adventure 4.x line: binary-compatible with Velocity's bundled adventure.
+        // Do NOT bump to 5.x here — Velocity provides adventure parent-first.
+        implementation 'net.kyori:adventure-api:4.26.1'
+        implementation 'net.kyori:adventure-nbt:4.26.1'
+        implementation 'net.kyori:adventure-text-serializer-gson:4.26.1'
+        implementation 'net.kyori:adventure-text-serializer-legacy:4.26.1'
+        implementation 'net.kyori:adventure-text-serializer-plain:4.26.1'
+        implementation 'net.kyori:adventure-text-minimessage:4.26.1'
+        implementation 'net.kyori:adventure-text-serializer-json-legacy-impl:4.26.1'
+
+        compileOnly 'org.jetbrains:annotations:26.0.2'
     }
 
     shadowJar {
-        from 'LICENSE'
+        from rootProject.file('LICENSE')
         minimize()
     }
 

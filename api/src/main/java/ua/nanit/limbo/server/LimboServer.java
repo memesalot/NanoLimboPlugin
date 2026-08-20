@@ -17,19 +17,10 @@
 
 package ua.nanit.limbo.server;
 
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.ServerChannel;
-import io.netty.channel.epoll.Epoll;
-import io.netty.channel.epoll.EpollEventLoopGroup;
-import io.netty.channel.epoll.EpollServerSocketChannel;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.*;
 import io.netty.util.ResourceLeakDetector;
+import lombok.Getter;
 import ua.nanit.limbo.configuration.LimboConfig;
 import ua.nanit.limbo.connection.ClientChannelInitializer;
 import ua.nanit.limbo.connection.ClientConnection;
@@ -37,11 +28,16 @@ import ua.nanit.limbo.connection.PacketHandler;
 import ua.nanit.limbo.connection.PacketSnapshots;
 import ua.nanit.limbo.world.DimensionRegistry;
 
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
+@Getter
 public final class LimboServer {
-    private boolean running = false;
+
+    private final LimboConfig config;
+    private final CommandHandler<Command> commandHandler;
 
     private PacketHandler packetHandler;
-    private PacketSnapshots packetSnapshots;
     private Connections connections;
     private DimensionRegistry dimensionRegistry;
     private ScheduledFuture<?> keepAliveTask;
@@ -49,82 +45,58 @@ public final class LimboServer {
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
 
-    private final LimboConfig config;
-    private final CommandHandler<Command> commandHandler;
-    private final ClassLoader classLoader;
+    private volatile boolean running = false;
 
-    public LimboServer(LimboConfig config, CommandHandler<Command> commandHandler, ClassLoader classLoader) {
+    public LimboServer(LimboConfig config, CommandHandler<Command> commandHandler) {
         this.config = config;
         this.commandHandler = commandHandler;
-        this.classLoader = classLoader;
-    }
-
-    public LimboConfig getConfig() {
-        return config;
-    }
-
-    public PacketHandler getPacketHandler() {
-        return packetHandler;
-    }
-
-    public PacketSnapshots getPacketSnapshots() {
-        return packetSnapshots;
-    }
-
-    public Connections getConnections() {
-        return connections;
-    }
-
-    public DimensionRegistry getDimensionRegistry() {
-        return dimensionRegistry;
-    }
-
-    public CommandHandler<Command> getCommandManager() {
-        return commandHandler;
     }
 
     public void start() throws Exception {
         Log.setLevel(config.getDebugLevel());
         Log.info("Starting server...");
 
-        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.DISABLED);
-        packetHandler = new PacketHandler(this);
-        dimensionRegistry = new DimensionRegistry(classLoader);
-        dimensionRegistry.load(config.getDimensionType());
-        connections = new Connections();
+        if (System.getProperty("io.netty.leakDetectionLevel") == null && System.getProperty("io.netty.leakDetection.level") == null) {
+            ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.DISABLED);
+        }
 
-        packetSnapshots = new PacketSnapshots(this);
+        packetHandler = new PacketHandler(this);
+        dimensionRegistry = new DimensionRegistry(this);
+        dimensionRegistry.load();
+        connections = new Connections(config);
+
+        PacketSnapshots.initPackets(this);
 
         startBootstrap();
 
         keepAliveTask = workerGroup.scheduleAtFixedRate(this::broadcastKeepAlive, 0L, 5L, TimeUnit.SECONDS);
 
-        Log.info("Server started on %s", config.getAddress());
+        Runtime.getRuntime().addShutdownHook(new Thread(this::stop, "NanoLimbo shutdown thread"));
 
-        Log.setLevel(config.getDebugLevel());
+        Log.info("Server started on %s", config.getAddress());
 
         System.gc();
         running = true;
     }
 
     private void startBootstrap() {
-        Class<? extends ServerChannel> channelClass;
-
-        if (config.isUseEpoll() && Epoll.isAvailable()) {
-            bossGroup = new EpollEventLoopGroup(config.getBossGroupSize());
-            workerGroup = new EpollEventLoopGroup(config.getWorkerGroupSize());
-            channelClass = EpollServerSocketChannel.class;
-            Log.debug("Using Epoll transport type");
-        } else {
-            bossGroup = new NioEventLoopGroup(config.getBossGroupSize());
-            workerGroup = new NioEventLoopGroup(config.getWorkerGroupSize());
-            channelClass = NioServerSocketChannel.class;
-            Log.debug("Using Java NIO transport type");
+        TransportType transportType = config.getTransportType();
+        if (!transportType.isAvailable()) {
+            Log.debug("Transport type " + transportType.name() + " is not available! Using NIO.");
+            transportType = TransportType.NIO;
         }
+
+        Log.debug("Using " + transportType.name() + " transport type");
+
+        ChannelFactory<? extends ServerChannel> channelFactory = transportType.getChannelFactory();
+        IoHandlerFactory ioHandlerFactory = transportType.getIoHandlerFactory();
+
+        bossGroup = new MultiThreadIoEventLoopGroup(config.getBossGroupSize(), ioHandlerFactory);
+        workerGroup = new MultiThreadIoEventLoopGroup(config.getWorkerGroupSize(), ioHandlerFactory);
 
         new ServerBootstrap()
                 .group(bossGroup, workerGroup)
-                .channel(channelClass)
+                .channelFactory(channelFactory)
                 .childHandler(new ClientChannelInitializer(this))
                 .childOption(ChannelOption.TCP_NODELAY, true)
                 .localAddress(config.getAddress())
