@@ -3,6 +3,7 @@ package com.bivashy.limbo;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.google.inject.Inject;
@@ -35,17 +36,27 @@ public class NanoLimboVelocity {
     private final LimboConfig limboConfig;
 
     @Inject
-    public NanoLimboVelocity(ProxyServer server, @DataDirectory Path dataFolder) {
+    public NanoLimboVelocity(ProxyServer server, @DataDirectory Path dataFolder, org.slf4j.Logger logger) {
         instance = this;
         this.server = server;
         this.dataFolder = dataFolder;
+        Log.setSink((level, msg, t) -> {
+            switch (level) {
+                case ERROR -> logger.error(msg, t);
+                case WARNING -> logger.warn(msg, t);
+                case DEBUG -> logger.debug(msg, t);
+                default -> logger.info(msg, t);
+            }
+        });
+        Log.info("NanoLimboVelocity %s initializing", "2.0.0");
         this.limboConfig = new LimboConfig(this);
     }
 
     @Subscribe
     public void onProxyInitialize(ProxyInitializeEvent e) {
+        Log.info("Initializing %d limbo(s)...", servers().size());
         CommandHandler<Command> commandHandler = new LampVelocityCommandHandler(this).registerAll();
-        for (VelocityLimboServer velocityLimboServer : limboConfig.getServers()) {
+        for (VelocityLimboServer velocityLimboServer : servers()) {
             if (velocityLimboServer == null || velocityLimboServer.getLimboConfig().getAddress() == null) {
                 Log.error("Skipping misconfigured limbo (check its settings.yml): %s", velocityLimboServer == null ? "?" : velocityLimboServer.getLimboName());
                 continue;
@@ -58,10 +69,15 @@ public class NanoLimboVelocity {
             this.server.registerServer(serverInfo);
             try {
                 server.start();
+                Log.info("Limbo '%s' registered and started on %s", serverInfo.getName(), serverInfo.getAddress());
             } catch(Exception ex) {
-                ex.printStackTrace();
+                Log.error("Failed to start limbo '%s'", ex, serverInfo.getName());
             }
         }
+    }
+
+    private List<VelocityLimboServer> servers() {
+        return limboConfig.getServers() == null ? java.util.List.of() : limboConfig.getServers();
     }
 
     public ProxyServer getServer() {

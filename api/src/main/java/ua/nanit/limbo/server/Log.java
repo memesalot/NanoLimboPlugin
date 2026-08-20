@@ -26,6 +26,15 @@ public final class Log {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("hh:mm:ss");
     private static int debugLevel = Level.INFO.getIndex();
+    private static volatile Sink sink = Log::printToStdout;
+
+    public interface Sink {
+        void print(Level level, String message, Throwable t);
+    }
+
+    public static void setSink(Sink sink) {
+        Log.sink = sink;
+    }
 
     private Log() {}
 
@@ -59,10 +68,13 @@ public final class Log {
 
     public static void print(Level level, Object msg, Throwable t, Object... args) {
         if (debugLevel >= level.getIndex()) {
-            String output = String.format("%s: %s%n", getPrefix(level), String.format(msg.toString(), args));
-            System.out.print(output);
-            if (t != null) t.printStackTrace(System.out);
+            sink.print(level, String.format(msg.toString(), args), t);
         }
+    }
+
+    private static void printToStdout(Level level, String message, Throwable t) {
+        System.out.printf("%s: %s%n", getPrefix(level), message);
+        if (t != null) t.printStackTrace(System.out);
     }
 
     public static boolean isDebug() {
